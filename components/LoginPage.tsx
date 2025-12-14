@@ -50,6 +50,7 @@ export const LoginPage: React.FC = () => {
       
       let errorMessage = 'Ocorreu um erro desconhecido.';
 
+      // Tentativa de capturar erros comuns
       if (error.message.includes('Invalid login credentials')) {
         errorMessage = 'E-mail ou senha inválidos.';
       } else if (error.message.includes('User already registered') || error.message.includes('already registered')) {
@@ -58,7 +59,11 @@ export const LoginPage: React.FC = () => {
         errorMessage = 'A senha deve ter no mínimo 6 caracteres.';
       } else if (error.message.includes('Email rate limit exceeded')) {
         errorMessage = 'Limite de envio de e-mail excedido. Tente novamente mais tarde.';
+      } else if (error.message.includes('duplicate key value violates unique constraint')) {
+        // Captura erros de violação de unicidade no banco de dados (ex: profiles table)
+        errorMessage = 'Este e-mail já está em uso. Por favor, faça o login.';
       } else {
+        // Se for um erro desconhecido, exibe a mensagem completa para diagnóstico
         errorMessage = `Ocorreu um erro. Detalhes: ${error.message}`;
       }
       

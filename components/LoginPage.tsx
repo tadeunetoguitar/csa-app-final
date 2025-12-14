@@ -49,20 +49,19 @@ export const LoginPage: React.FC = () => {
       console.error("Supabase Auth Error:", error);
       
       let errorMessage = 'Ocorreu um erro desconhecido.';
-      const errorCode = error.status || 'N/A';
 
       // Tentativa de capturar erros comuns
       if (error.message.includes('Invalid login credentials')) {
         errorMessage = 'E-mail ou senha inválidos.';
-      } else if (error.message.includes('User already registered') || error.message.includes('already registered')) {
+      } else if (error.message.includes('User already registered') || error.message.includes('already registered') || error.message.includes('A user with this email address has already been registered')) {
         errorMessage = 'Este e-mail já está em uso. Por favor, faça o login.';
       } else if (error.message.includes('Password should be at least 6 characters')) {
         errorMessage = 'A senha deve ter no mínimo 6 caracteres.';
       } else if (error.message.includes('Email rate limit exceeded')) {
         errorMessage = 'Limite de envio de e-mail excedido. Tente novamente mais tarde.';
       } else {
-        // Exibe a mensagem completa para diagnóstico
-        errorMessage = `[Código ${errorCode}] Ocorreu um erro. Detalhes: ${error.message}`;
+        // Mensagem de erro genérica
+        errorMessage = `Ocorreu um erro. Detalhes: ${error.message}`;
       }
       
       setMessage({ type: 'error', text: errorMessage });

@@ -27,6 +27,11 @@ export const LoginPage: React.FC = () => {
           setLoading(false);
           return;
         }
+        if (password.length < 6) {
+          setMessage({ type: 'error', text: 'A senha deve ter no mínimo 6 caracteres.' });
+          setLoading(false);
+          return;
+        }
         
         const { error } = await supabase.auth.signUp({ 
           email, 
@@ -41,11 +46,13 @@ export const LoginPage: React.FC = () => {
         setMessage({ type: 'success', text: 'Confirmação enviada! Verifique seu e-mail para ativar sua conta.' });
       }
     } catch (error: any) {
+      console.error("Supabase Auth Error:", error);
       const errorMessage = 
         error.message.includes('Invalid login credentials') ? 'E-mail ou senha inválidos.' :
         error.message.includes('User already registered') ? 'Este e-mail já está em uso.' :
         error.message.includes('Password should be at least 6 characters') ? 'A senha deve ter no mínimo 6 caracteres.' :
-        'Ocorreu um erro. Tente novamente.';
+        error.message.includes('Email rate limit exceeded') ? 'Limite de envio de e-mail excedido. Tente novamente mais tarde.' :
+        `Ocorreu um erro. Detalhes: ${error.message}`; // Exibe o erro real para diagnóstico
       setMessage({ type: 'error', text: errorMessage });
     } finally {
       setLoading(false);

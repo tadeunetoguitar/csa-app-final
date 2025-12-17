@@ -125,7 +125,7 @@ serve(async (req) => {
     const eventType = body?.event;
     const customerEmail = body?.data?.buyer?.email;
     const customerName = body?.data?.buyer?.name;
-    const customerPhone = body?.data?.buyer?.phone_number; // Capturando o telefone
+    const customerPhone = body?.data?.buyer?.phone_number;
     
     console.log(`[${requestId}] Event: ${eventType}`);
     console.log(`[${requestId}] Email: ${customerEmail}`);
@@ -164,78 +164,56 @@ serve(async (req) => {
     let user = null;
 
     try {
-      // 1. Tentar encontrar usuário existente usando listUsers
-      console.log(`[${requestId}] Searching for existing user...`);
+      // 1. Tentar criar convite diretamente (mais rápido se o usuário for novo)
+      console.log(`[${requestId}] Attempting to invite/create user...`);
       
-      const { data: usersList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(customerEmail, {
+        data: { 
+          full_name: customerName || '',
+          invited_by: 'hotmart_webhook'
+        }
+      });
       
-      if (listError) {
-        console.error(`[${requestId}] Error listing users:`, listError);
-        throw listError;
-      }
-
-      // Procurar usuário pelo email
-      const existingUser = usersList.users.find(u => u.email === customerEmail);
-      
-      if (existingUser) {
-        user = existingUser;
-        console.log(`[${requestId}] Existing user found: ${user.id}`);
-      } else {
-        console.log(`[${requestId}] User not found in existing users list`);
-      }
-
-      // 2. Se usuário não existe, criar convite
-      if (!user) {
-        console.log(`[${requestId}] Creating invite for new user...`);
+      if (inviteError) {
+        console.log(`[${requestId}] Invite error:`, inviteError.message);
         
-        const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(customerEmail, {
-          data: { 
-            full_name: customerName || '',
-            invited_by: 'hotmart_webhook'
-          }
-        });
-        
-        if (inviteError) {
-          console.log(`[${requestId}] Invite error:`, inviteError.message);
+        // Se usuário já existe, precisamos buscar o ID (Chamada lenta, mas só ocorre em caso de conflito)
+        if (inviteError.message.includes('already registered') || 
+            inviteError.message.includes('User already registered') ||
+            inviteError.message.includes('already been invited')) {
           
-          // Se usuário já existe, tentar buscar novamente
-          if (inviteError.message.includes('already registered') || 
-              inviteError.message.includes('User already registered') ||
-              inviteError.message.includes('already been invited')) {
-            
-            console.log(`[${requestId}] User already exists, searching again...`);
-            
-            // Buscar novamente na lista de usuários
-            const { data: retryUsersList, error: retryListError } = await supabaseAdmin.auth.admin.listUsers();
-            
-            if (retryListError) {
-              console.error(`[${requestId}] Retry list users failed:`, retryListError);
-              throw retryListError;
-            }
-            
-            const retryUser = retryUsersList.users.find(u => u.email === customerEmail);
-            
-            if (retryUser) {
-              user = retryUser;
-              console.log(`[${requestId}] User found on retry: ${user.id}`);
-            } else {
-              throw new Error('User should exist but not found in retry');
-            }
+          console.log(`[${requestId}] User already exists, searching for ID via listUsers...`);
+          
+          const { data: retryUsersList, error: retryListError } = await supabaseAdmin.auth.admin.listUsers();
+          
+          if (retryListError) {
+            console.error(`[${requestId}] Retry list users failed:`, retryListError);
+            throw retryListError;
+          }
+          
+          const retryUser = retryUsersList.users.find(u => u.email === customerEmail);
+          
+          if (retryUser) {
+            user = retryUser;
+            console.log(`[${requestId}] Existing user found: ${user.id}`);
           } else {
-            console.error(`[${requestId}] Fatal invite error:`, inviteError);
-            throw inviteError;
+            throw new Error('User exists but ID could not be retrieved.');
           }
         } else {
-          user = inviteData.user;
-          console.log(`[${requestId}] Invite created successfully for user: ${user?.id}`);
+          // Outro erro fatal
+          console.error(`[${requestId}] Fatal invite error:`, inviteError);
+          throw inviteError;
         }
+      } else {
+        user = inviteData.user;
+        console.log(`[${requestId}] Invite created successfully for user: ${user?.id}`);
       }
 
       if (!user) {
         throw new Error('Failed to find or create user');
       }
 
-      // 3. Atualizar perfil com acesso e dados do Hotmart
+      // 2. Atualizar perfil com acesso e dados do Hotmart
       console.log(`[${requestId}] Updating user profile: ${user.id}`);
       
       const { error: profileError } = await supabaseAdmin
@@ -243,8 +221,8 @@ serve(async (req) => {
         .upsert({ 
           id: user.id, 
           has_access: true,
-          full_name: customerName || undefined, // Atualiza nome se vier
-          phone: customerPhone || undefined, // Atualiza telefone se vier
+          full_name: customerName || undefined,
+          phone: customerPhone || undefined,
           updated_at: new Date().toISOString()
         }, { 
           onConflict: 'id' 
@@ -257,7 +235,7 @@ serve(async (req) => {
 
       console.log(`[${requestId}] Profile updated successfully`);
 
-      // 4. Resposta de sucesso
+      // 3. Resposta de sucesso
       const successResponse = {
         received: true,
         user_id: user.id,

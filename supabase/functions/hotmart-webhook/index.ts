@@ -125,10 +125,12 @@ serve(async (req) => {
     const eventType = body?.event;
     const customerEmail = body?.data?.buyer?.email;
     const customerName = body?.data?.buyer?.name;
+    const customerPhone = body?.data?.buyer?.phone_number; // Capturando o telefone
     
     console.log(`[${requestId}] Event: ${eventType}`);
     console.log(`[${requestId}] Email: ${customerEmail}`);
     console.log(`[${requestId}] Name: ${customerName}`);
+    console.log(`[${requestId}] Phone: ${customerPhone}`);
 
     if (eventType !== 'PURCHASE_APPROVED') {
       console.log(`[${requestId}] Ignoring event: ${eventType}`);
@@ -233,22 +235,7 @@ serve(async (req) => {
         throw new Error('Failed to find or create user');
       }
 
-      // 3. Verificar estrutura da tabela profiles primeiro
-      console.log(`[${requestId}] Checking profiles table structure...`);
-      
-      const { data: existingProfile, error: getProfileError } = await supabaseAdmin
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (getProfileError && !getProfileError.message.includes('No rows')) {
-        console.log(`[${requestId}] Profile check error (may be normal):`, getProfileError.message);
-      }
-
-      console.log(`[${requestId}] Existing profile:`, existingProfile);
-
-      // 4. Atualizar perfil apenas com campos que sabemos que existem
+      // 3. Atualizar perfil com acesso e dados do Hotmart
       console.log(`[${requestId}] Updating user profile: ${user.id}`);
       
       const { error: profileError } = await supabaseAdmin
@@ -256,6 +243,8 @@ serve(async (req) => {
         .upsert({ 
           id: user.id, 
           has_access: true,
+          full_name: customerName || undefined, // Atualiza nome se vier
+          phone: customerPhone || undefined, // Atualiza telefone se vier
           updated_at: new Date().toISOString()
         }, { 
           onConflict: 'id' 
@@ -268,7 +257,7 @@ serve(async (req) => {
 
       console.log(`[${requestId}] Profile updated successfully`);
 
-      // 5. Resposta de sucesso
+      // 4. Resposta de sucesso
       const successResponse = {
         received: true,
         user_id: user.id,

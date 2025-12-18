@@ -196,6 +196,20 @@ serve(async (req) => {
       if (inviteError) {
         console.log(`[${requestId}] Invite error:`, inviteError.message);
         
+        // Se o erro for sobre e-mail inválido (comum em testes da Hotmart), 
+        // logamos e retornamos 200 para evitar reenvios, mas não prosseguimos.
+        if (inviteError.message.includes('Email address') && inviteError.message.includes('is invalid')) {
+            console.warn(`[${requestId}] Supabase rejected email (likely a test email): ${customerEmail}. Returning 200 OK to Hotmart.`);
+            return new Response(JSON.stringify({ 
+                received: true, 
+                message: `Email rejected by Supabase Auth: ${customerEmail}. Check email validity.`,
+                request_id: requestId
+            }), { 
+                status: 200, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            });
+        }
+
         // Se usuário já existe, precisamos buscar o ID (Chamada lenta, mas só ocorre em caso de conflito)
         if (inviteError.message.includes('already registered') || 
             inviteError.message.includes('User already registered') ||
@@ -221,7 +235,7 @@ serve(async (req) => {
             throw new Error('User exists but ID could not be retrieved.');
           }
         } else {
-          // Outro erro fatal (incluindo o erro de e-mail inválido do Supabase)
+          // Outro erro fatal
           console.error(`[${requestId}] Fatal invite error:`, inviteError);
           throw inviteError;
         }

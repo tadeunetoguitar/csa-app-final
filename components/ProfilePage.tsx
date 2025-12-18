@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../src/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
-import { Loader2, Save, User, KeyRound } from 'lucide-react';
+import { Loader2, Save, User, KeyRound, AlertCircle, CheckCircle } from 'lucide-react';
 import { PasswordRecoveryView } from './PasswordRecoveryView';
 
 interface ProfilePageProps {
@@ -209,7 +209,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ session, onBack, isRec
             </button>
             <div className="flex items-center gap-4">
                 {message && (
-                    <div className={`text-sm font-medium ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`flex items-center gap-2 text-sm font-medium p-2 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                        {message.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                         {message.text}
                     </div>
                 )}

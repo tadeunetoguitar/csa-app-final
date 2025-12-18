@@ -7,6 +7,12 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Função de validação de e-mail simples
+function isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
 serve(async (req) => {
   const requestId = Math.random().toString(36).substring(7);
   
@@ -154,6 +160,19 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
+    
+    // Validação de e-mail antes de chamar o Supabase Auth
+    if (!isValidEmail(customerEmail)) {
+        console.error(`[${requestId}] Invalid customer email format: ${customerEmail}`);
+        return new Response(JSON.stringify({ 
+            error: `Invalid customer email format: ${customerEmail}`,
+            request_id: requestId
+        }), { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+    }
+
 
     // Inicializar Supabase
     console.log(`[${requestId}] Initializing Supabase...`);
@@ -184,6 +203,7 @@ serve(async (req) => {
           
           console.log(`[${requestId}] User already exists, searching for ID via listUsers...`);
           
+          // NOTA: listUsers é lento, mas necessário para obter o ID do usuário existente
           const { data: retryUsersList, error: retryListError } = await supabaseAdmin.auth.admin.listUsers();
           
           if (retryListError) {
@@ -197,10 +217,11 @@ serve(async (req) => {
             user = retryUser;
             console.log(`[${requestId}] Existing user found: ${user.id}`);
           } else {
+            // Se o usuário existe, mas não conseguimos encontrá-lo na lista (muito raro)
             throw new Error('User exists but ID could not be retrieved.');
           }
         } else {
-          // Outro erro fatal
+          // Outro erro fatal (incluindo o erro de e-mail inválido do Supabase)
           console.error(`[${requestId}] Fatal invite error:`, inviteError);
           throw inviteError;
         }

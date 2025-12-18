@@ -14,6 +14,7 @@ import { PurchaseSuccessPage } from './components/PurchaseSuccessPage';
 import { CompletionPage } from './components/CompletionPage';
 
 const STORAGE_KEY = 'ebook_reprogram_mind_data';
+const ACTIVE_CHAPTER_KEY = 'ebook_active_chapter_id'; // Nova chave para o capítulo ativo
 
 type ActiveView = 'chapters' | 'profile' | 'login' | 'purchase_success' | 'completion';
 
@@ -57,7 +58,16 @@ const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const { profile, loading: profileLoading } = useProfile(session);
   
-  const [currentChapterId, setCurrentChapterId] = useState<string>(EBOOK_CONTENT[0].id);
+  // Inicializa com o capítulo salvo ou o primeiro capítulo
+  const [currentChapterId, setCurrentChapterId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const savedChapterId = localStorage.getItem(ACTIVE_CHAPTER_KEY);
+      const chapterExists = EBOOK_CONTENT.some(c => c.id === savedChapterId);
+      return chapterExists ? savedChapterId! : EBOOK_CONTENT[0].id;
+    }
+    return EBOOK_CONTENT[0].id;
+  });
+  
   const [userData, setUserData] = useState<UserProgress>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   
@@ -106,6 +116,15 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Efeito para salvar o capítulo ativo sempre que ele mudar
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTIVE_CHAPTER_KEY, currentChapterId);
+    } catch (e) {
+      console.warn("LocalStorage quota may be exceeded when saving active chapter.", e);
+    }
+  }, [currentChapterId]);
+
   useEffect(() => {
     if (mainScrollRef.current) {
       mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -116,6 +135,9 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
     setIsSidebarOpen(false);
     setIsPasswordRecovery(false);
+    // Limpa o capítulo ativo ao sair
+    localStorage.removeItem(ACTIVE_CHAPTER_KEY);
+    setCurrentChapterId(EBOOK_CONTENT[0].id);
   };
 
   const handleUpdateData = (id: string, value: any) => {
@@ -133,7 +155,7 @@ const App: React.FC = () => {
   const currentChapterIndex = EBOOK_CONTENT.findIndex(c => c.id === currentChapterId);
   const currentChapter = EBOOK_CONTENT[currentChapterIndex];
 
-  const isCurrentChapterComplete = isChapterExercisesComplete(currentChapter, userData);
+  const isCurrentChapterComplete = currentChapter ? isChapterExercisesComplete(currentChapter, userData) : false;
 
   const completedChapterIds = EBOOK_CONTENT
     .filter(chapter => isChapterExercisesComplete(chapter, userData))
@@ -189,6 +211,7 @@ const App: React.FC = () => {
   };
 
   const getHeaderTitle = () => {
+    if (!currentChapter) return '';
     switch(activeView) {
       case 'chapters':
         return currentChapter.title;
@@ -254,7 +277,7 @@ const App: React.FC = () => {
             ref={mainScrollRef}
             className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth bg-white lg:bg-slate-50/50"
           >
-            {activeView === 'chapters' && (
+            {activeView === 'chapters' && currentChapter && (
               <>
                 <ChapterView 
                   chapter={currentChapter}

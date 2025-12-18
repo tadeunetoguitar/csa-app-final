@@ -118,7 +118,7 @@ export const PurchaseSuccessPage: React.FC<PurchaseSuccessPageProps> = ({ onGoTo
               </button>
             </form>
           ) : (
-            <p className="text-sm text-green-700 font-medium mt-4">
+            <p className="text-sm text-slate-900 font-medium mt-4">
               Verifique sua caixa de entrada (e spam) agora para definir sua senha.
             </p>
           )}

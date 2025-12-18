@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../src/integrations/supabase/client';
 
@@ -11,6 +11,18 @@ export const PurchaseSuccessPage: React.FC<PurchaseSuccessPageProps> = ({ onGoTo
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [emailSent, setEmailSent] = useState(false);
+
+  useEffect(() => {
+    // Tenta ler o e-mail da URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const emailFromUrl = urlParams.get('email');
+    if (emailFromUrl) {
+      setEmail(emailFromUrl);
+      // Remove o parâmetro 'email' da URL para limpeza
+      urlParams.delete('email');
+      window.history.replaceState({}, document.title, `/?${urlParams.toString()}`);
+    }
+  }, []);
 
   const handleSendPasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();

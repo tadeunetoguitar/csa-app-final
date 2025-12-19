@@ -53,7 +53,8 @@ export const PurchasePage: React.FC<PurchasePageProps> = ({ onGoToLogin }) => {
         <p className="mt-2 text-slate-500">
           Adquira acesso vitalício ao guia interativo "Como o Subconsciente Aprende" e comece sua jornada de transformação.
         </p>
-        <div className="mt-8">
+        
+        <div className="mt-8 space-y-4">
           <button
             onClick={handlePurchase}
             disabled={isLoading}
@@ -68,12 +69,10 @@ export const PurchasePage: React.FC<PurchasePageProps> = ({ onGoToLogin }) => {
               `Comprar Acesso Vitalício`
             )}
           </button>
-        </div>
-        
-        <div className="mt-6 text-center">
+
           <button 
             onClick={onGoToLogin} 
-            className="text-sm text-slate-500 hover:text-brand-600 underline transition-colors block w-full"
+            className="w-full flex justify-center items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl shadow-lg shadow-green-500/20 hover:bg-green-700 hover:shadow-green-500/30 transition-all active:scale-95 font-medium"
           >
             Já comprou? Faça o login
           </button>

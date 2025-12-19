@@ -8,7 +8,7 @@ interface PurchasePageProps {
 
 // Link de pagamento da Hotmart (SUBSTITUA ESTE LINK PELO SEU LINK REAL DA HOTMART)
 // NOTA: Certifique-se de que a Hotmart está configurada para redirecionar para este URL após a compra.
-const HOTMART_BASE_LINK = "https://pay.hotmart.com/S103335808T?off=fatjd0zq&checkoutMode=10&bid=1765308920310";
+const HOTMART_BASE_LINK = "https://pay.hotmart.com/S103335808T?off=pn3r0mcm&checkoutMode=10&bid=1766177323170";
 
 const getHotmartPaymentLink = () => {
   // Redireciona para a página de sucesso após a compra.

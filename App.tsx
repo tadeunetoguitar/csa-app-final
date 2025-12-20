@@ -79,8 +79,12 @@ const App: React.FC = () => {
   
   const mainScrollRef = useRef<HTMLDivElement>(null);
 
+  // Variável para armazenar se o link de recuperação foi detectado na URL inicial
+  const recoveryLinkDetected = useRef(false);
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
     // 1. Check for purchase success
     if (urlParams.get('purchase_success')) {
@@ -88,11 +92,19 @@ const App: React.FC = () => {
       window.history.replaceState({}, document.title, "/");
     }
     
-    // 2. Check for password recovery link parameters
-    const isRecoveryLink = urlParams.get('type') === 'recovery';
+    // 2. Check for password recovery link parameters (query or hash)
+    const isRecoveryLink = urlParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery';
+    
     if (isRecoveryLink) {
+        recoveryLinkDetected.current = true;
         setIsPasswordRecovery(true);
         setActiveView('profile');
+        
+        // Limpa o hash da URL para evitar problemas de re-renderização, 
+        // mas mantemos o estado 'isPasswordRecovery' ativo.
+        if (window.location.hash) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     }
 
     const savedData = localStorage.getItem(STORAGE_KEY);
@@ -107,16 +119,26 @@ const App: React.FC = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      
+      // O evento PASSWORD_RECOVERY é o mais confiável
       if (event === 'PASSWORD_RECOVERY') {
+        recoveryLinkDetected.current = true;
         setIsPasswordRecovery(true);
         setActiveView('profile');
       } else if (event === 'SIGNED_IN') {
-        // Se o usuário acabou de logar, mas estava em um link de recuperação, 
+        // Se o usuário acabou de logar, mas o link de recuperação foi detectado, 
         // mantemos o estado de recuperação ativo para forçar a redefinição.
-        if (!isRecoveryLink) {
+        if (recoveryLinkDetected.current) {
+            // Não faz nada, mantém isPasswordRecovery = true
+        } else {
+            // Login normal
             setIsPasswordRecovery(false);
             setActiveView('chapters');
         }
+      } else if (event === 'SIGNED_OUT') {
+        // Limpa o estado de recuperação ao sair
+        recoveryLinkDetected.current = false;
+        setIsPasswordRecovery(false);
       }
     });
 
@@ -148,6 +170,7 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
     setIsSidebarOpen(false);
     setIsPasswordRecovery(false);
+    recoveryLinkDetected.current = false; // Garante que o estado interno seja limpo
     // Limpa o capítulo ativo ao sair
     localStorage.removeItem(ACTIVE_CHAPTER_KEY);
     setCurrentChapterId(EBOOK_CONTENT[0].id);
@@ -201,14 +224,16 @@ const App: React.FC = () => {
   };
 
   const handleBackFromProfile = () => {
+    // Se a recuperação foi concluída (e o usuário foi deslogado em PasswordRecoveryView),
+    // ele deve ir para o login.
     if (isPasswordRecovery) {
-      // Se a recuperação foi concluída, volta para o login
       setActiveView('login');
     } else {
       // Se foi apenas uma visita ao perfil, volta para os capítulos
       setActiveView('chapters');
     }
     setIsPasswordRecovery(false);
+    recoveryLinkDetected.current = false; // Garante que o estado interno seja limpo
   };
 
   const navigateToChapter = (chapterId: string) => {

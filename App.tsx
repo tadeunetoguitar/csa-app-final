@@ -15,6 +15,7 @@ import { CompletionPage } from './components/CompletionPage';
 
 const STORAGE_KEY = 'ebook_reprogram_mind_data';
 const ACTIVE_CHAPTER_KEY = 'ebook_active_chapter_id'; // Nova chave para o capítulo ativo
+const RECOVERY_PENDING_KEY = 'supabase_recovery_pending'; // Chave para persistir o estado de recuperação
 
 type ActiveView = 'chapters' | 'profile' | 'login' | 'purchase_success' | 'completion';
 
@@ -75,16 +76,28 @@ const App: React.FC = () => {
   const [authCheckCompleted, setAuthCheckCompleted] = useState(false);
   
   const [activeView, setActiveView] = useState<ActiveView>('chapters');
-  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  
+  // Inicializa isPasswordRecovery baseado na URL ou LocalStorage
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const isRecoveryLink = urlParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery';
+        const isPending = localStorage.getItem(RECOVERY_PENDING_KEY) === 'true';
+        
+        if (isRecoveryLink || isPending) {
+            // Se detectado, garante que a flag esteja no storage para persistência
+            localStorage.setItem(RECOVERY_PENDING_KEY, 'true');
+            return true;
+        }
+    }
+    return false;
+  });
   
   const mainScrollRef = useRef<HTMLDivElement>(null);
 
-  // Variável para armazenar se o link de recuperação foi detectado na URL inicial
-  const recoveryLinkDetected = useRef(false);
-
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
     // 1. Check for purchase success
     if (urlParams.get('purchase_success')) {
@@ -92,12 +105,8 @@ const App: React.FC = () => {
       window.history.replaceState({}, document.title, "/");
     }
     
-    // 2. Check for password recovery link parameters (query or hash)
-    const isRecoveryLink = urlParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery';
-    
-    if (isRecoveryLink) {
-        recoveryLinkDetected.current = true;
-        setIsPasswordRecovery(true);
+    // Se isPasswordRecovery é true do inicializador, garante que a view seja 'profile'
+    if (isPasswordRecovery) {
         setActiveView('profile');
     }
 
@@ -116,14 +125,15 @@ const App: React.FC = () => {
       
       // O evento PASSWORD_RECOVERY é o mais confiável
       if (event === 'PASSWORD_RECOVERY') {
-        recoveryLinkDetected.current = true;
+        localStorage.setItem(RECOVERY_PENDING_KEY, 'true');
         setIsPasswordRecovery(true);
         setActiveView('profile');
       } else if (event === 'SIGNED_IN') {
-        // Se o usuário acabou de logar, mas o link de recuperação foi detectado, 
-        // mantemos o estado de recuperação ativo para forçar a redefinição.
-        if (recoveryLinkDetected.current) {
-            // Não faz nada, mantém isPasswordRecovery = true
+        // Se logado, verifica se a recuperação está pendente (via localStorage)
+        if (localStorage.getItem(RECOVERY_PENDING_KEY) === 'true') {
+            // Mantém o estado de recuperação ativo para forçar a redefinição
+            setIsPasswordRecovery(true);
+            setActiveView('profile');
         } else {
             // Login normal
             setIsPasswordRecovery(false);
@@ -131,7 +141,7 @@ const App: React.FC = () => {
         }
       } else if (event === 'SIGNED_OUT') {
         // Limpa o estado de recuperação ao sair
-        recoveryLinkDetected.current = false;
+        localStorage.removeItem(RECOVERY_PENDING_KEY);
         setIsPasswordRecovery(false);
       }
     });
@@ -164,7 +174,7 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
     setIsSidebarOpen(false);
     setIsPasswordRecovery(false);
-    recoveryLinkDetected.current = false; // Garante que o estado interno seja limpo
+    localStorage.removeItem(RECOVERY_PENDING_KEY); // Limpa o estado de recuperação
     // Limpa o capítulo ativo ao sair
     localStorage.removeItem(ACTIVE_CHAPTER_KEY);
     setCurrentChapterId(EBOOK_CONTENT[0].id);
@@ -227,7 +237,7 @@ const App: React.FC = () => {
       setActiveView('chapters');
     }
     setIsPasswordRecovery(false);
-    recoveryLinkDetected.current = false; // Garante que o estado interno seja limpo
+    localStorage.removeItem(RECOVERY_PENDING_KEY); // Limpa o estado de recuperação
   };
 
   const navigateToChapter = (chapterId: string) => {

@@ -81,9 +81,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // 1. Check for purchase success
     if (urlParams.get('purchase_success')) {
       setActiveView('purchase_success');
       window.history.replaceState({}, document.title, "/");
+    }
+    
+    // 2. Check for password recovery link parameters
+    const isRecoveryLink = urlParams.get('type') === 'recovery';
+    if (isRecoveryLink) {
+        setIsPasswordRecovery(true);
+        setActiveView('profile');
     }
 
     const savedData = localStorage.getItem(STORAGE_KEY);
@@ -102,8 +111,12 @@ const App: React.FC = () => {
         setIsPasswordRecovery(true);
         setActiveView('profile');
       } else if (event === 'SIGNED_IN') {
-        setIsPasswordRecovery(false);
-        setActiveView('chapters');
+        // Se o usuário acabou de logar, mas estava em um link de recuperação, 
+        // mantemos o estado de recuperação ativo para forçar a redefinição.
+        if (!isRecoveryLink) {
+            setIsPasswordRecovery(false);
+            setActiveView('chapters');
+        }
       }
     });
 
@@ -189,8 +202,10 @@ const App: React.FC = () => {
 
   const handleBackFromProfile = () => {
     if (isPasswordRecovery) {
+      // Se a recuperação foi concluída, volta para o login
       setActiveView('login');
     } else {
+      // Se foi apenas uma visita ao perfil, volta para os capítulos
       setActiveView('chapters');
     }
     setIsPasswordRecovery(false);

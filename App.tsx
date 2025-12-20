@@ -99,12 +99,6 @@ const App: React.FC = () => {
         recoveryLinkDetected.current = true;
         setIsPasswordRecovery(true);
         setActiveView('profile');
-        
-        // Limpa o hash da URL para evitar problemas de re-renderização, 
-        // mas mantemos o estado 'isPasswordRecovery' ativo.
-        if (window.location.hash) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
     }
 
     const savedData = localStorage.getItem(STORAGE_KEY);
